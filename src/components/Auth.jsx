@@ -1,7 +1,7 @@
-// src/components/Auth.js
+// Example: src/components/Auth.js
 import { useState } from "react";
-import { auth } from "../firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { auth, googleProvider } from "../firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -10,45 +10,66 @@ export default function Auth() {
 
   const handleAuth = async () => {
     try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
-    } catch (error) {
-      alert(error.message);
+      if (isLogin) await signInWithEmailAndPassword(auth, email, password);
+      else await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleGoogle = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      alert(err.message);
     }
   };
 
   return (
-    <div className="flex flex-col gap-4 items-center justify-center min-h-screen">
-      <h2 className="text-xl font-bold">{isLogin ? "Login" : "Sign Up"}</h2>
-      <input
-        type="email"
-        placeholder="Email"
-        className="p-2 border rounded"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        className="p-2 border rounded"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <button
-        onClick={handleAuth}
-        className="bg-blue-500 text-white px-4 py-2 rounded"
-      >
-        {isLogin ? "Login" : "Sign Up"}
-      </button>
-      <p
-        onClick={() => setIsLogin(!isLogin)}
-        className="cursor-pointer text-blue-600"
-      >
-        {isLogin ? "Create an account" : "Already have an account?"}
-      </p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 px-4">
+      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
+        <h2 className="text-2xl font-bold mb-6 text-center">{isLogin ? "Login" : "Sign Up"}</h2>
+
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full p-3 mb-4 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full p-3 mb-4 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button
+          onClick={handleAuth}
+          className="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 mb-4 transition"
+        >
+          {isLogin ? "Login" : "Sign Up"}
+        </button>
+
+        <button
+          onClick={handleGoogle}
+          className="w-full border p-3 rounded hover:bg-gray-100 transition mb-4 flex items-center justify-center gap-2"
+        >
+          <img src="/google-icon.svg" alt="Google" className="w-5 h-5" />
+          Sign in with Google
+        </button>
+
+        <p className="text-center text-sm text-gray-500">
+          {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+          <span
+            className="text-blue-600 cursor-pointer"
+            onClick={() => setIsLogin(!isLogin)}
+          >
+            {isLogin ? "Sign Up" : "Login"}
+          </span>
+        </p>
+      </div>
     </div>
   );
 }

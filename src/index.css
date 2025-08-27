@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 :root {
   --bg: #f8fafc;
   --card: #fff;
@@ -75,4 +77,12 @@ body {
 .expense-list {
   max-height: 40vh;
   overflow: auto
+}
+
+@theme{
+  --color-darkbg: #010C16;
+  --color-darkblue: #022040;
+  --color-blueaccent: #6EACDA;
+  --color-lightgray: #EFEFEF;
+  --color-beach: #E2E2B6;
 }

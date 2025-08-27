@@ -1,21 +1,37 @@
-import React from 'react'
-import useAuthState from '../hooks/useAuthState'
+import React from "react";
+import useAuthState from "../hooks/useAuthState";
 
+export default function Navbar() {
+  const { user, login, logout, loading } = useAuthState();
 
-export default function Navbar(){
-const {user,login,logout,loading} = useAuthState()
-return (
-<header className="header container">
-<div>
-<h2 style={{margin:0}}>ExpenseTracker</h2>
-<div className="small">Category-wise charts • PWA</div>
-</div>
-<div style={{marginLeft:'auto'}} className="flex-gap">
-{user? <>
-<div className="small">{user.displayName}</div>
-<button className="btn" onClick={logout}>Logout</button>
-</> : <button className="btn" onClick={login}>{loading? '...' : 'Login with Google'}</button>}
-</div>
-</header>
-)
+  return (
+    <header className="flex items-center p-4 bg-darkblue text-lightgray shadow-md">
+      {/* Logo & Title */}
+      <div>
+        <h2 className="text-xl font-bold text-blueaccent m-0">ExpenseTracker</h2>
+      </div>
+
+      {/* Auth Buttons */}
+      <div className="ml-auto flex items-center gap-2">
+        {user ? (
+          <>
+            <div className="text-sm text-lightgray">{user.displayName}</div>
+            <button
+              onClick={logout}
+              className="bg-blueaccent text-darkbg px-3 py-1 rounded hover:bg-lightgray hover:text-darkblue transition"
+            >
+              Logout
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={login}
+            className="bg-blueaccent text-darkbg px-3 py-1 rounded hover:bg-lightgray hover:text-darkblue transition"
+          >
+            {loading ? "..." : "Login with Google"}
+          </button>
+        )}
+      </div>
+    </header>
+  );
 }
