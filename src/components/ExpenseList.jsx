@@ -1,26 +1,35 @@
-import React from 'react'
-import { currency, dateStr } from '../utils/format'
+// src/components/ExpenseList.js
+import { useEffect, useState } from "react";
+import { db } from "../firebase";
+import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
 
+export default function ExpenseList() {
+  const { user } = useAuth();
+  const [expenses, setExpenses] = useState([]);
 
-export default function ExpenseList({ expenses }){
-return (
-<div className="card expense-list">
-<h3>Expenses</h3>
-{expenses.length === 0 && <div className="small">No expenses yet</div>}
-<div>
-{expenses.map(e=> (
-<div key={e.id} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #f1f5f9'}}>
-<div>
-<div style={{fontWeight:600}}>{e.category}</div>
-<div className="small">{e.note}</div>
-</div>
-<div style={{textAlign:'right'}}>
-<div style={{fontWeight:700}}>{currency(e.amount)}</div>
-<div className="small">{dateStr(e.when || e.createdAt)}</div>
-</div>
-</div>
-))}
-</div>
-</div>
-)
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, "expenses"),
+      where("uid", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setExpenses(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  return (
+    <div className="p-4">
+      <h2 className="text-lg font-bold mb-2">Your Expenses</h2>
+      {expenses.map((exp) => (
+        <div key={exp.id} className="p-2 border-b">
+          <p><b>{exp.category}</b> - ₹{exp.amount}</p>
+          <small>{exp.note}</small>
+        </div>
+      ))}
+    </div>
+  );
 }
