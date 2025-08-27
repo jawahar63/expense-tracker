@@ -17,7 +17,6 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (!user) return <Auth />;
 
   const handlers = useSwipeable({
     onSwipedLeft: () => {
@@ -33,6 +32,10 @@ function AppContent() {
     preventDefaultTouchmoveEvent: true,
     trackMouse: true,
   });
+
+  if (!user) {
+    return <Auth />;
+  }
 
   return (
     <div className="relative min-h-screen bg-darkblue text-lightgray flex flex-col overflow-hidden">
