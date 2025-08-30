@@ -4,6 +4,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  sendEmailVerification,
+  signOut,
 } from "firebase/auth";
 import {
   doc,
@@ -66,14 +68,38 @@ export default function Auth() {
     setLoading(true);
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+
+        // 🔹 Block login if not verified
+        if (!userCredential.user.emailVerified) {
+          alert("Please verify your email before logging in.");
+          await signOut(auth);
+          return;
+        }
+
+        console.log("✅ Logged in successfully");
       } else {
         const userCredential = await createUserWithEmailAndPassword(
           auth,
           email,
           password
         );
-        await createUserProfile(userCredential.user);
+
+        const user = userCredential.user;
+
+        // 🔹 Send verification mail
+        await sendEmailVerification(user);
+
+        // Create profile in Firestore
+        await createUserProfile(user);
+
+        alert(
+          "📧 Verification email sent! Please check your inbox before logging in."
+        );
       }
     } catch (err) {
       alert(err.message);
@@ -86,6 +112,8 @@ export default function Auth() {
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
+
+      // 🔹 Google accounts are already verified
       await createUserProfile(result.user);
     } catch (err) {
       alert(err.message);

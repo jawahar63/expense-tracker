@@ -1,7 +1,14 @@
 // src/components/ExpenseList.js
 import { useEffect, useState, useRef } from "react";
 import { db } from "../firebase";
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 
 export default function ExpenseList() {
@@ -9,13 +16,19 @@ export default function ExpenseList() {
   const [expenses, setExpenses] = useState([]);
   const [filteredExpenses, setFilteredExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [banks, setBanks] = useState([]);
+  const [bankEnabled, setBankEnabled] = useState(false);
+
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [bankFilter, setBankFilter] = useState("");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState(null); // ID of expense to delete
   const dropdownRef = useRef();
+
+  const [deleteId, setDeleteId] = useState(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -28,77 +41,97 @@ export default function ExpenseList() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch expenses
+  // ✅ Fetch expenses
   useEffect(() => {
     if (!user) return;
-    const expensesRef = collection(db, "users", user.uid, "expenses");
-    const q = query(expensesRef, orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const q = query(
+      collection(db, "users", user.uid, "expenses"),
+      orderBy("createdAt", "desc")
+    );
+    return onSnapshot(q, (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setExpenses(data);
       setFilteredExpenses(data);
     });
-    return () => unsubscribe();
   }, [user]);
 
-  // Fetch categories
+  // ✅ Fetch categories
   useEffect(() => {
     if (!user) return;
-    const categoriesRef = collection(db, "users", user.uid, "categories");
-    const q = query(categoriesRef, orderBy("name", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setCategories(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    const q = query(collection(db, "users", user.uid, "categories"));
+    return onSnapshot(q, (snap) => {
+      setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
-    return () => unsubscribe();
   }, [user]);
 
-  // Delete expense
-  const deleteExpense = async (id) => {
-    try {
-      await deleteDoc(doc(db, "users", user.uid, "expenses", id));
-      setDeleteId(null); // close popup
-    } catch (error) {
-      console.error("Error deleting expense:", error);
-    }
-  };
+  // ✅ Fetch bankEnabled + banks
+  useEffect(() => {
+    if (!user) return;
+    const unsubUser = onSnapshot(doc(db, "users", user.uid), (snap) => {
+      setBankEnabled(snap.data()?.bankEnabled || false);
+    });
+    const q = query(collection(db, "users", user.uid, "banks"));
+    const unsubBanks = onSnapshot(q, (snap) => {
+      setBanks(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+    return () => {
+      unsubUser();
+      unsubBanks();
+    };
+  }, [user]);
 
-  // Filters
+  // ✅ Helpers
+  const getCategoryName = (id) =>
+    categories.find((c) => c.id === id)?.name || "Unknown";
+  const getBankName = (id) =>
+    banks.find((b) => b.id === id)?.name || "No Bank";
+
+  // ✅ Filters
   useEffect(() => {
     let temp = [...expenses];
-    if (categoryFilter) temp = temp.filter((exp) => exp.categoryId === categoryFilter);
-    if (dateFrom) temp = temp.filter((exp) => exp.createdAt?.toDate() >= new Date(dateFrom));
-    if (dateTo) temp = temp.filter((exp) => exp.createdAt?.toDate() <= new Date(dateTo));
+    if (categoryFilter)
+      temp = temp.filter((exp) => exp.categoryId === categoryFilter);
+    if (bankFilter) temp = temp.filter((exp) => exp.bankId === bankFilter);
+    if (dateFrom)
+      temp = temp.filter((exp) => exp.createdAt?.toDate() >= new Date(dateFrom));
+    if (dateTo)
+      temp = temp.filter((exp) => exp.createdAt?.toDate() <= new Date(dateTo));
     if (search) {
       const lower = search.toLowerCase();
       temp = temp.filter(
         (exp) =>
           exp.note?.toLowerCase().includes(lower) ||
-          getCategoryName(exp.categoryId)?.toLowerCase().includes(lower)
+          getCategoryName(exp.categoryId)?.toLowerCase().includes(lower) ||
+          (exp.bankId && getBankName(exp.bankId).toLowerCase().includes(lower))
       );
     }
     setFilteredExpenses(temp);
-  }, [categoryFilter, search, dateFrom, dateTo, expenses, categories]);
+  }, [categoryFilter, bankFilter, search, dateFrom, dateTo, expenses, categories, banks]);
 
-  const getCategoryName = (id) => categories.find((c) => c.id === id)?.name || "Unknown";
+  // ✅ Delete expense
+  const deleteExpense = async (id) => {
+    await deleteDoc(doc(db, "users", user.uid, "expenses", id));
+    setDeleteId(null);
+  };
 
   return (
-    <div className="p-4 bg-darkblue rounded-lg shadow-md text-lightgray relative">
+    <div className="md:h-[80vh] p-4 bg-darkblue rounded-lg shadow-md text-lightgray relative">
       <h2 className="text-lg font-bold mb-3 text-blueaccent">Your Expenses</h2>
 
-      {/* Search and Category Dropdown */}
+      {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-2 items-center">
         <input
           type="text"
           placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 w-1/2 p-2 rounded bg-darkbg border border-blueaccent text-lightgray focus:outline-none focus:ring-1 focus:ring-blueaccent"
+          className="flex-1 p-2 rounded bg-darkbg border border-blueaccent"
         />
+        {/* Category Dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
-            type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="p-2 rounded bg-darkbg border border-blueaccent text-lightgray w-40 text-left flex justify-between items-center focus:outline-none focus:ring-1 focus:ring-blueaccent"
+            className="p-2 rounded bg-darkbg border border-blueaccent w-40 text-left flex justify-between items-center"
           >
             {categoryFilter ? getCategoryName(categoryFilter) : "All Categories"}
             <span className="ml-2">&#9662;</span>
@@ -107,15 +140,25 @@ export default function ExpenseList() {
             <div className="absolute mt-1 w-full bg-darkbg border border-blueaccent rounded shadow-lg max-h-48 overflow-y-auto z-50">
               <div
                 className="p-2 cursor-pointer hover:bg-blueaccent hover:text-darkbg"
-                onClick={() => { setCategoryFilter(""); setDropdownOpen(false); }}
+                onClick={() => {
+                  setCategoryFilter("");
+                  setDropdownOpen(false);
+                }}
               >
                 All Categories
               </div>
               {categories.map((cat) => (
                 <div
                   key={cat.id}
-                  className={`p-2 cursor-pointer hover:bg-blueaccent hover:text-darkbg ${categoryFilter === cat.id ? "bg-blueaccent text-darkbg" : ""}`}
-                  onClick={() => { setCategoryFilter(cat.id); setDropdownOpen(false); }}
+                  className={`p-2 cursor-pointer ${
+                    categoryFilter === cat.id
+                      ? "bg-blueaccent text-darkbg"
+                      : "hover:bg-blueaccent hover:text-darkbg"
+                  }`}
+                  onClick={() => {
+                    setCategoryFilter(cat.id);
+                    setDropdownOpen(false);
+                  }}
                 >
                   {cat.name}
                 </div>
@@ -123,53 +166,88 @@ export default function ExpenseList() {
             </div>
           )}
         </div>
+
+        {/* Bank Dropdown */}
+        {bankEnabled && (
+          <select
+            value={bankFilter}
+            onChange={(e) => setBankFilter(e.target.value)}
+            className="p-2 rounded bg-darkbg border border-blueaccent"
+          >
+            <option value="">All Banks</option>
+            {banks.map((bank) => (
+              <option key={bank.id} value={bank.id}>
+                {bank.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Date Filters */}
-      <div className="flex flex-wrap gap-2 mb-4 items-center">
+      <div className="flex gap-2 mb-4">
         <input
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
-          className="p-2 rounded bg-darkbg border border-blueaccent text-lightgray focus:outline-none focus:ring-1 focus:ring-blueaccent"
+          className="p-2 rounded bg-darkbg border border-blueaccent"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
-          className="p-2 rounded bg-darkbg border border-blueaccent text-lightgray focus:outline-none focus:ring-1 focus:ring-blueaccent"
+          className="p-2 rounded bg-darkbg border border-blueaccent"
         />
       </div>
 
-      {/* Expense List */}
-      <div className="max-h-96 overflow-y-auto relative">
+      {/* Expenses */}
+      <div className="max-h-96 overflow-y-auto">
         {filteredExpenses.length > 0 ? (
           filteredExpenses.map((exp) => (
             <div
               key={exp.id}
-              className={`relative flex flex-col md:flex-row justify-between items-start p-4 rounded-lg mb-2 shadow-md transition-transform hover:scale-105 ${getCategoryName(exp.categoryId).toLowerCase() === "income" ? "border-2 border-green-400" : "border-2 border-red-400"} bg-darkbg`}
+              className={`relative flex flex-col md:flex-row justify-between items-start p-4 rounded-lg mb-2 shadow-md border-2 ${
+                getCategoryName(exp.categoryId).toLowerCase() === "income"
+                  ? "border-green-900"
+                  : "border-red-900"
+              } bg-darkbg`}
             >
-              {/* Delete Icon */}
+              {/* Delete Btn */}
               <button
                 onClick={() => setDeleteId(exp.id)}
-                className="absolute top-2 right-2 text-red-500 hover:text-red-700"
-                title="Delete Expense"
+                className="absolute top-1 right-1 text-red-500 hover:text-red-700 bg-[rgba(0,0,0,0.5)] p-2 rounded-full"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                ✕
               </button>
 
-              <div className="flex flex-row items-center gap-2">
-                <span className="font-bold text-lg">{getCategoryName(exp.categoryId)}</span>
-                <span className={`text-md font-semibold ${getCategoryName(exp.categoryId).toLowerCase() === "income" ? "text-green-400" : "text-red-400"}`}>
-                  ₹{exp.amount}
+              <div className="flex flex-col gap-1">
+                <span className="font-bold text-lg">
+                  {getCategoryName(exp.categoryId)}
                 </span>
+                {bankEnabled && exp.bankId && (
+                  <span className="text-sm text-blue-400">
+                    Bank: {getBankName(exp.bankId)}
+                  </span>
+                )}
               </div>
 
-              {exp.note && <div className="mt-2 text-sm text-lightgray w-full md:mt-1">{exp.note}</div>}
+              <span
+                className={`font-semibold ${
+                  getCategoryName(exp.categoryId).toLowerCase() === "income"
+                    ? "text-green-400"
+                    : "text-red-400"
+                }`}
+              >
+                ₹{exp.amount}
+              </span>
 
-              <div className="text-xs text-lightgray ml-auto">{exp.createdAt?.toDate().toLocaleDateString()}</div>
+              {exp.note && (
+                <div className="mt-2 text-sm text-lightgray">{exp.note}</div>
+              )}
+
+              <div className="text-xs text-lightgray ml-auto">
+                {exp.createdAt?.toDate().toLocaleDateString()}
+              </div>
             </div>
           ))
         ) : (

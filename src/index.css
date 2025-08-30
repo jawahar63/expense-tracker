@@ -79,6 +79,45 @@ body {
   overflow: auto
 }
 
+:root {
+  --scrollbar-track-color: #010C16;
+  /* Background track */
+  --scrollbar-thumb-color: #2A323C;
+  /* Thumb default */
+  --scrollbar-thumb-hover-color: #1D232A;
+  /* Thumb hover */
+}
+
+/* For Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--scrollbar-track-color);
+  border-radius: 9999px;
+  /* Fully rounded */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-color);
+  border-radius: 9999px;
+  border: 2px solid var(--scrollbar-track-color);
+  /* Seamless with background */
+  transition: background-color 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover-color);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
+}
+
 @theme{
   --color-darkbg: #010C16;
   --color-darkblue: #022040;
