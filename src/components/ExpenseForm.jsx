@@ -45,7 +45,6 @@ export default function ExpenseForm() {
     const unsub = onSnapshot(doc(db, "users", user.uid), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        console.log(data);
         setBankWise(data.bankWise || false);
       }
     });
