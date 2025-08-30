@@ -8,7 +8,7 @@ export default function Navbar() {
     <header className="flex items-center p-4 bg-darkblue text-lightgray shadow-md">
       {/* Logo & Title */}
       <div>
-        <h2 className="text-xl font-bold text-blueaccent m-0">ExpenseTracker</h2>
+        <h2 className="text-xl font-bold text-blueaccent m-0">Penny Pilot</h2>
       </div>
 
       {/* Auth Buttons */}

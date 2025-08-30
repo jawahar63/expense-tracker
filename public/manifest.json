@@ -1,10 +1,10 @@
 {
-"name": "ExpenseTracker",
-"short_name": "Expenses",
+"name": "PennyPilot",
+"short_name": "PennyPilot",
 "start_url": "/",
 "display": "standalone",
-"background_color": "#ffffff",
-"theme_color": "#0f172a",
+"background_color": "#010C16",
+"theme_color": "#022040",
 "icons": [
 { "src": "pennypilot.png", "sizes": "192x192", "type": "image/png" },
 { "src": "playstore.png", "sizes": "512x512", "type": "image/png" }
