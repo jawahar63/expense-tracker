@@ -18,6 +18,8 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  if (!user) return <Auth />;
+
   const handlers = useSwipeable({
     onSwipedLeft: () => {
       const currentIndex = TABS.indexOf(location.pathname);
