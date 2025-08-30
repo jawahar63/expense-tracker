@@ -9,6 +9,7 @@ import List from "./components/ExpenseList";
 import Charts from "./components/ExpenseChart";
 import Auth from "./components/Auth";
 import BottomNav from "./components/BottomNav";
+import Profile from "./pages/Profile";
 
 const TABS = ["/home", "/add", "/list", "/charts"];
 
@@ -16,8 +17,6 @@ function AppContent() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  if (!user) return <Auth />;
 
   const handlers = useSwipeable({
     onSwipedLeft: () => {
@@ -34,6 +33,10 @@ function AppContent() {
     trackMouse: true,
   });
 
+  if (!user) {
+    return <Auth />;
+  }
+
   return (
     <div className="relative min-h-screen bg-darkblue text-lightgray flex flex-col overflow-hidden">
       {/* Fixed Navbar */}
@@ -48,6 +51,7 @@ function AppContent() {
           <Route path="/add" element={<Add />} />
           <Route path="/list" element={<List />} />
           <Route path="/charts" element={<Charts />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<Home />} />
         </Routes>
       </div>

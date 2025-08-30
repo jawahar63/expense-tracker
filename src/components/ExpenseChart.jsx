@@ -1,7 +1,7 @@
-// src/components/ExpenseChart.js
+// src/components/ExpenseChart.jsx
 import { useEffect, useState } from "react";
 import { db } from "../firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -25,8 +25,10 @@ export default function ExpenseChart({ filterCategory, filterFrom, filterTo, sea
   const [expenseCategories, setExpenseCategories] = useState([]);
 
   useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, "expenses"), where("uid", "==", user.uid));
+    if (!user?.uid) return;
+
+    const expensesRef = collection(db, "users", user.uid, "expenses");
+    const q = query(expensesRef, orderBy("createdAt", "asc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const allMap = {};
@@ -39,12 +41,12 @@ export default function ExpenseChart({ filterCategory, filterFrom, filterTo, sea
       const currentYear = now.getFullYear();
 
       snapshot.docs.forEach((doc) => {
-        const { category, amount, note, type, createdAt } = doc.data();
+        const { category = "Unknown", amount, note, createdAt } = doc.data();
         const date = createdAt?.toDate();
         if (!date) return;
 
-        // Apply external filters
-        if (filterCategory && category.toLowerCase() !== filterCategory.toLowerCase()) return;
+        // Apply filters
+        if (filterCategory && category !== filterCategory) return;
         if (filterFrom && date < new Date(filterFrom)) return;
         if (filterTo && date > new Date(filterTo)) return;
         if (search) {
@@ -52,37 +54,53 @@ export default function ExpenseChart({ filterCategory, filterFrom, filterTo, sea
           if (!category.toLowerCase().includes(lower) && !note?.toLowerCase().includes(lower)) return;
         }
 
-        if (type === "expense") categoriesSet.add(category);
+        // Track expense categories
+        if (category.toLowerCase() !== "income") categoriesSet.add(category);
 
-        // Pie Chart All Data
-        allMap[category] = (allMap[category] || 0) + amount;
+        // Pie Chart - All Time (only expenses)
+        if (category.toLowerCase() !== "income") allMap[category] = (allMap[category] || 0) + amount;
 
-        // Pie Chart This Month
-        if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+        // Pie Chart - This Month (only expenses)
+        if (category.toLowerCase() !== "income" && date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
           thisMonthMap[category] = (thisMonthMap[category] || 0) + amount;
         }
 
-        // Bar Chart monthly
+        // Bar Chart - Monthly
         const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
-        if (!monthMap[key]) monthMap[key] = { month: key, income: 0 };
-        if (!monthMap[key].expenses) monthMap[key].expenses = {};
+        if (!monthMap[key]) monthMap[key] = { month: key, income: 0, expenses: {} };
 
-        if (type === "income") monthMap[key].income += amount;
+        if (category.toLowerCase() === "income") monthMap[key].income += amount;
         else monthMap[key].expenses[category] = (monthMap[key].expenses[category] || 0) + amount;
       });
 
-      // Transform monthMap into array suitable for grouped/staked bar chart
-      const months = Object.values(monthMap).sort((a, b) => new Date(a.month + "-01") - new Date(b.month + "-01"));
-      const monthDataForBar = months.map((m) => ({
-        month: new Date(m.month + "-01").toLocaleString("default", { month: "short", year: "numeric" }),
-        income: m.income,
-        ...m.expenses
-      }));
+      const allCategories = Array.from(categoriesSet);
+
+      // Transform monthMap → array for BarChart
+      const months = Object.values(monthMap).sort(
+        (a, b) => new Date(a.month + "-01") - new Date(b.month + "-01")
+      );
+
+      const monthDataForBar = months.map((m) => {
+        const monthObj = { 
+          month: new Date(m.month + "-01").toLocaleString("default", { month: "short", year: "numeric" }),
+          income: m.income
+        };
+        allCategories.forEach((cat) => {
+          monthObj[cat] = m.expenses[cat] || 0; // ensure every category exists
+        });
+        return monthObj;
+      });
+
+      // --- LOG DATA ---
+      console.log("allData:", Object.entries(allMap).map(([name, value]) => ({ name, value })));
+      console.log("thisMonthData:", Object.entries(thisMonthMap).map(([name, value]) => ({ name, value })));
+      console.log("monthlyData:", monthDataForBar);
+      console.log("expenseCategories:", allCategories);
 
       setAllData(Object.entries(allMap).map(([name, value]) => ({ name, value })));
       setThisMonthData(Object.entries(thisMonthMap).map(([name, value]) => ({ name, value })));
       setMonthlyData(monthDataForBar);
-      setExpenseCategories([...categoriesSet]);
+      setExpenseCategories(allCategories);
     });
 
     return () => unsubscribe();
@@ -143,13 +161,13 @@ export default function ExpenseChart({ filterCategory, filterFrom, filterTo, sea
         {thisMonthData.length ? renderPie(thisMonthData) : <p className="text-lightgray text-center">No data</p>}
       </div>
 
-      {/* Pie - All */}
+      {/* Pie - All Time */}
       <div className="p-4 bg-darkblue rounded-lg shadow-md text-lightgray">
         <h2 className="font-bold text-lg mb-2 text-blueaccent">Expenses by Category (All Time)</h2>
         {allData.length ? renderPie(allData) : <p className="text-lightgray text-center">No data</p>}
       </div>
 
-      {/* Bar - Monthly Income vs Expense (stacked) */}
+      {/* Bar - Monthly Income vs Expense */}
       <div className="p-4 bg-darkblue rounded-lg shadow-md text-lightgray">
         <h2 className="font-bold text-lg mb-2 text-blueaccent">Monthly Income vs Expense</h2>
         {monthlyData.length ? renderBar() : <p className="text-lightgray text-center">No data</p>}

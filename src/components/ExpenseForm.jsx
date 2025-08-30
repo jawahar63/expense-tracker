@@ -1,4 +1,3 @@
-// src/components/ExpenseForm.js
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import {
@@ -10,24 +9,26 @@ import {
   orderBy,
   doc,
   setDoc,
+  getDoc,
 } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 
 export default function ExpenseForm() {
   const { user } = useAuth();
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState(""); // store ID
   const [note, setNote] = useState("");
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState([]); // [{id, name}]
   const [showPopup, setShowPopup] = useState(false);
   const [newCategory, setNewCategory] = useState("");
 
-  // Fetch categories from Firebase
+  // ✅ Fetch user's categories
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "categories"), orderBy("name", "asc"));
+    const categoriesRef = collection(db, "users", user.uid, "categories");
+    const q = query(categoriesRef, orderBy("name", "asc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setCategories(snapshot.docs.map((doc) => doc.data().name));
+      setCategories(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
     });
     return () => unsubscribe();
   }, [user]);
@@ -35,18 +36,26 @@ export default function ExpenseForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user) return alert("Login first!");
-    if (!amount || !category) return alert("Amount and Category are required!");
+    if (!amount || !categoryId) return alert("Amount and Category are required!");
 
     try {
-      await addDoc(collection(db, "expenses"), {
-        uid: user.uid,
+      // ✅ also fetch category name to store with expense
+      const categoryDoc = await getDoc(
+        doc(db, "users", user.uid, "categories", categoryId)
+      );
+      const categoryName = categoryDoc.exists() ? categoryDoc.data().name : "";
+
+      const expensesRef = collection(db, "users", user.uid, "expenses");
+      await addDoc(expensesRef, {
         amount: parseFloat(amount),
-        category,
+        categoryId,
+        category: categoryName, // ✅ store name too
         note,
         createdAt: serverTimestamp(),
       });
+
       setAmount("");
-      setCategory("");
+      setCategoryId("");
       setNote("");
     } catch (error) {
       alert(error.message);
@@ -55,19 +64,24 @@ export default function ExpenseForm() {
 
   const handleAddCategory = async () => {
     const trimmed = newCategory.trim();
-    if (!trimmed) return;
-    if (!categories.includes(trimmed)) {
+    if (!trimmed || !user) return;
+
+    // Check if category already exists
+    const exists = categories.find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (!exists) {
       try {
-        // Save new category in Firestore
-        await setDoc(doc(db, "categories", trimmed), { name: trimmed });
-        setCategory(trimmed);
+        const categoryRef = doc(collection(db, "users", user.uid, "categories"));
+        await setDoc(categoryRef, { name: trimmed });
+        setCategoryId(categoryRef.id); // select new
         setShowPopup(false);
         setNewCategory("");
       } catch (error) {
         alert(error.message);
       }
     } else {
-      setCategory(trimmed);
+      setCategoryId(exists.id);
       setShowPopup(false);
       setNewCategory("");
     }
@@ -77,20 +91,20 @@ export default function ExpenseForm() {
     <div className="bg-darkblue p-4 rounded-lg shadow-md mb-4 text-lightgray">
       <h3 className="text-lg font-bold mb-2 text-blueaccent">Add Expense</h3>
 
-      {/* Categories as breadcrumbs */}
+      {/* Category selector */}
       <div className="flex flex-wrap gap-2 mb-2">
         {categories.map((cat) => (
           <button
             type="button"
-            key={cat}
-            onClick={() => setCategory(cat)}
+            key={cat.id}
+            onClick={() => setCategoryId(cat.id)}
             className={`px-3 py-1 rounded-full border ${
-              category === cat
+              categoryId === cat.id
                 ? "bg-blueaccent text-darkbg"
                 : "bg-darkbg border-blueaccent text-lightgray"
             }`}
           >
-            {cat}
+            {cat.name}
           </button>
         ))}
         <button
@@ -102,7 +116,7 @@ export default function ExpenseForm() {
         </button>
       </div>
 
-      {/* Form */}
+      {/* Expense form */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <input
           type="number"
@@ -110,15 +124,6 @@ export default function ExpenseForm() {
           className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blueaccent bg-darkbg text-lightgray"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          required
-        />
-
-        <input
-          type="text"
-          placeholder="Category"
-          className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blueaccent bg-darkbg text-lightgray"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
           required
         />
 
